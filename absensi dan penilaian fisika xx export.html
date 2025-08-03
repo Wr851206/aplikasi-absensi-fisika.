@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Absensi & Penilaian - Fisika (Cloud Version)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f7f9fc; }
+        .main-card, .header-card { background-color: #ffffff; border: 1px solid #eef2f7; }
+        .tab-button.active { border-bottom-color: #2563eb; color: #2563eb; background-color: #eff6ff; }
+        .table-container { max-height: 55vh; overflow-y: auto; }
+        .status-btn { transition: all 0.2s ease-in-out; }
+        .status-btn.active { transform: scale(1.1); box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-width: 2px; }
+        .note-input, .form-input { transition: all 0.2s; }
+        .note-input:focus, .form-input:focus { border-color: #2563eb; box-shadow: 0 0 0 2px #bfdbfe; }
+        .modal, .loader-overlay { display: none; }
+        .modal.active, .loader-overlay.active { display: flex; }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div id="loader" class="loader-overlay fixed inset-0 bg-white bg-opacity-80 z-50 items-center justify-center">
+        <div class="text-center">
+            <i class="fas fa-spinner fa-spin text-blue-600 text-5xl"></i>
+            <p id="loader-text" class="mt-4 text-lg font-semibold text-gray-700">Memuat data dari Spreadsheet...</p>
+        </div>
+    </div>
+
+    <div class="container mx-auto p-4 max-w-screen-2xl">
+        <header class="header-card shadow-xl rounded-2xl p-6 mb-6">
+            <div class="text-center">
+                <h1 class="text-2xl font-extrabold text-gray-900 uppercase">SMA NEGERI 1 SARIWANGI</h1>
+                <p class="text-sm text-gray-600">Kp. Cipaku Kecamatan Sariwangi - Kabupatén Tasikmalaya</p>
+                <h2 class="text-xl font-bold text-orange-600 mt-4 uppercase">Absensi dan Penilaian</h2>
+                <p class="text-lg font-semibold text-gray-800 uppercase">Mata Pelajaran Fisika Kelas X</p>
+                <p class="text-md text-gray-600 mt-1 uppercase">Guru Pengampu: Wawan Ridwan</p>
+            </div>
+            <div class="mt-6 border-t pt-5">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div class="flex flex-col items-start text-left">
+                        <label for="class-selector" class="text-sm font-medium text-gray-700 mb-1 pl-1">Nama Kelas</label>
+                        <select id="class-selector" class="form-input w-full p-3.5 border border-gray-300 rounded-lg shadow-sm text-base"></select>
+                    </div>
+                    <div class="flex flex-col items-start text-left">
+                        <label for="date-picker" class="text-sm font-medium text-gray-700 mb-1 pl-1">Tanggal</label>
+                        <input type="date" id="date-picker" class="w-full p-3.5 border border-gray-300 rounded-lg shadow-sm text-base">
+                    </div>
+                    <button id="save-button" class="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-all flex items-center justify-center text-lg self-end h-[54px]">
+                        <i class="fa-solid fa-cloud-arrow-up mr-3"></i><span>Simpan ke Spreadsheet</span>
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                     <div>
+                        <label for="materi-pembahasan" class="text-sm font-medium text-gray-700 mb-1 pl-1">Materi Pembahasan</label>
+                        <textarea id="materi-pembahasan" rows="3" class="form-input w-full p-3 border border-gray-300 rounded-lg" placeholder="Tuliskan materi yang dibahas hari ini..."></textarea>
+                    </div>
+                    <div>
+                        <label for="catatan-kegiatan" class="text-sm font-medium text-gray-700 mb-1 pl-1">Catatan Kegiatan</label>
+                        <textarea id="catatan-kegiatan" rows="3" class="form-input w-full p-3 border border-gray-300 rounded-lg" placeholder="Tuliskan catatan kegiatan..."></textarea>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-card shadow-lg rounded-xl mb-6 overflow-hidden border border-gray-200">
+            <nav class="flex">
+                <button data-tab="absensi" class="tab-button flex-1 py-4 px-2 text-center font-bold text-gray-600 border-b-4 border-transparent hover:bg-blue-50 text-lg"><i class="fa-solid fa-user-pen mr-2"></i>Absensi</button>
+                <button data-tab="penilaian" class="tab-button flex-1 py-4 px-2 text-center font-bold text-gray-600 border-b-4 border-transparent hover:bg-blue-50 text-lg"><i class="fa-solid fa-award mr-2"></i>Penilaian</button>
+                <button data-tab="laporan" class="tab-button flex-1 py-4 px-2 text-center font-bold text-gray-600 border-b-4 border-transparent hover:bg-blue-50 text-lg"><i class="fa-solid fa-chart-line mr-2"></i>Laporan & Ekspor</button>
+            </nav>
+        </div>
+
+        <main id="app-content" class="main-card shadow-lg rounded-xl p-2 md:p-4 border border-gray-200"></main>
+    </div>
+    
+    <div id="assessment-modal" class="modal fixed inset-0 bg-gray-900 bg-opacity-60 items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-lg">
+            <h2 class="text-2xl font-bold mb-6">Buat Penilaian Baru</h2>
+            <div class="space-y-4">
+                <input type="date" id="assessment-date" class="form-input w-full p-3 border border-gray-300 rounded-lg">
+                <select id="assessment-type" class="form-input w-full p-3 border border-gray-300 rounded-lg">
+                    <option value="TGS">Tugas Terstruktur</option>
+                    <option value="FRM">Assessment Formatif</option>
+                    <option value="SMT">Assessment Sumatif</option>
+                    <option value="LLN">Penilaian Lainnya</option>
+                </select>
+                <input type="text" id="assessment-title" class="form-input w-full p-3 border border-gray-300 rounded-lg" placeholder="Contoh: Ulangan Harian Dinamika Partikel">
+            </div>
+            <div class="mt-8 flex justify-end space-x-4">
+                <button id="cancel-assessment" class="px-6 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 font-semibold">Batal</button>
+                <button id="save-assessment" class="px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-semibold">Simpan & Mulai</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // --- KONFIGURASI APLIKASI ---
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzz18LQ7-g01mzh1HN9NclhRbzZgR6rQMb7xQPCOpJgzE5l3oLH9-GoRAgvZOYQiU18/exec"; // <-- PENTING: Ganti dengan URL Web App Anda
+
+    // --- STATE & DOM ELEMENTS ---
+    const appContent = document.getElementById('app-content');
+    const classSelector = document.getElementById('class-selector');
+    const datePicker = document.getElementById('date-picker');
+    const saveButton = document.getElementById('save-button');
+    const loader = document.getElementById('loader');
+    const loaderText = document.getElementById('loader-text');
+    const tabs = document.querySelectorAll('.tab-button');
+    const assessmentModal = document.getElementById('assessment-modal');
+    const materiPembahasanInput = document.getElementById('materi-pembahasan');
+    const catatanKegiatanInput = document.getElementById('catatan-kegiatan');
+    
+    let currentClass = 'X1';
+    let currentDate = new Date().toISOString().slice(0, 10);
+    let currentTab = 'absensi';
+    let appData = {}; // Data utama aplikasi, diisi dari Google Sheets
+
+    const studentData = {
+        "X1":["ABDULLATIP","ABIMANYU","ADELLA LIANA SAPUTRI","AGNI NUR FAUZIAH","AGNIA OKTAVIA","AHMAD RAMDANI","AISHA ALIFA","ALFIAN MAULANA YUSUP RAMADHANI","ALIF SURYA ALKHALIFI","ALYA","AMELIA NURAZIZAH","ARSYA SYAHBUDIN SIREGAR","ARYA MAULANA","AULIYA SAPIRA","DELIMA PUTRI JAYANI","ELSA APRIANI","FANESA KANIA DEWI","FINZA MUTMAINAH","GESIA AZIZAH NUR SYABANI","INTAN NURUL FADILAH","KEVIN DWI ANDIKA","LEGIS AZIZULATIP","M.ARIF.NUROCHMAN","M.RIFQI FAUZAN RAMADHAN","MUHAMAD HADI DIKRULOH","MUHAMAD REZA RAIHAN","MUHAMAD RIZKI AKBAR","NANDA SATRIA WANDANA","NAZWA ZAIDA","RAHMA RAMADANI","RAMA ARRIZQI NURFADLIAN","RATNA DUHITA","REZKY BAGUS JANUARI","SELSA KHOIRUNNISA","SINDI SITI AULIA","SITI ANISA APRILIANA","SITI NURHALIMAH","SUSAN USANTI","TISNA ABDUL MUTAQIN","ZASKIA OKTAPIANI"],
+        "X2":["AGNIESA RAHADATUL AISY","AMELIA","ARFAN NAJMUDIN","ARGHIYA SAPUTRA ROHMANSAH","AURA AFRILIANI","CINTA PUTRI AFRIANIE","DELA DELIANTI","DEVI RAHMAH NURUL FAUZIAH","DEWI RAMDHANI SAPUTRA","DHITO MUHAMMAD RAMDHANI","DIAN APRIANSYAH","FANDHA CITRA ALAMSYAH","FITRI NURAINI","GHEFIRA NUR FATIMAH","HENDRI ALFARIZKI","JAGAT SATRIA","JILAN ALIFAH","MAHIRA RAMADINA","MOCH. RAFFI ADIKARA GRACIAN","MUHAMAD RAFA RAFIKASIH","MUHAMMAD QIDAM","MUHAMMAD TANZIL FATHURROHMAN","MUHAMMAD ZENZEN QIRANA","NABIL LUQMANUL HAKIM","NADIA AULIA SAPARINA","NAISA MARLISA","OKSA DWI MULYANI","RAKA DARMAWANSyah","RENIA SITI SALAMAH","REVISA FAUZIATUL AULANI","REYHAN PUTRA TRI LAKSANA","RIZKI RAMDANI HAKIM","SAEPUL RAMDAN","SALWA PITRIANI SAPWAH","SILVI AFRILIYANTI","SILVIA RAMADANI","SINTA MALATI PUTRI SULUNG","SRI AMALIA SOLIHAH","TANISA FIRYAL HESTI","YASINTA ALZAHRA"],
+        "X3":["ALFI MUHAMMAD ZULPIKAR","ALLYA NAFISATUL ALIYAH","ALMA AZALIA ARIANI","AQILLA FATIMMA","ARFA OKTAPIAN","ASYIFA KARUNIA MAHARANI","BASIT MUKTI WIBOWO","CLARISSA ISABELINA SALSABILA","DAVID DARMAWAN","DELIA RAHMA","DISTI NUR MARYAM","FAZRI NUROHMAN","FAZRIL RAMADAN","FEBRIKA KHAELA AZHAAR","FIKA NURUL AZIZAH","FITRI AWALIYAH","LULU MUFIDATUL ANWAR","M FATHIR R","MELISA ANGGRAENI","MUHAMAD ARIP NUR ALAMSYAH","MUHAMMAD ALWAN ALFARIDZI","MUHAMMAD RAIHAN","MUHAMMAD RIZKI ZAELANI","MUHAMMAD ZAKI DULFADLI","NADYA LEZA LESTARY","NASYA AULIYA","NAYLA RAZQIA NADIVA","NENG DEA PATIMATUN ZAHRA","PRATIWI RAHMAWATI","RAI SEPTI SETIAWAN","RESTIANA","REVINO RINALDI","ROSITA","SAHRUL CEPTIAN","SASIKIRANA NUR TABINA","SHERIL RHIGEA ANDARESTA","SITI JULIANI","SYAHPA NADIFA AQILAH","SYAHRUN NI'MAH NURWIJAYA","ZAHRA AULIA PUTRI"],
+        "X4":["ALIFA RAISA RAHMA","ALKATIRI PRASETIA","ALQY MUHAMMAD KHAUSTARI","AULIA RACHMA MAULIDA","AZRIL RIZKI RAMDANI","DARA CAHYA RAMDANIATI","DERIS DWI ANJANI","FADIL KHAIRUL ANWAR","FAIZ CAHYADIN","FAREL JUNIOR FIRDAUS","FIQRI PUTRA PAMUNGKAS","FIRLI AFRIANSYAH","INDIYATI KURNIASARI","INDRIAPRIANI","JIHAN SALSA SAFITRI","KIKIAIDIL","M AZHAR RAFSANJANI IBTISAM","MARSA NABILA","MAURA ALBANIANTORO","MAYA AULIA","MOCH ADRI NURULLOH","MOHAMMAD ZIDAN RAMDANI","MUHAMMAD DAFFA JAUHAR","NAMIERA ASHILLAH","NASYWA FAUZIYAH","NAYLA ALIFIA AULIA .S.","RAIHAN ZAELAN MUTAKIN","REFI NURSYIFA FITRI","RENGGA RANGGA WIJAYA","REVAN MIFAR","REZKI ALIMAN PASYA","RIZA RAMADANI","SARI NENGSIH","SUCI NURAENI","TASYA KHOIRUN NISA","TSANA RAHMA KAMILAH","VIA LUTFIANI","WENDI PRATAMA","WILDA PARIDATUL BAHIYAH","WIRDA WARDATU AULIA"],
+        "X9":["AHMAD NAWAL NU FAIKAR","AISAH FITRI","AISOPI AZZAKIA PUTRI","ARAS IKSANI","CALSA - SABILA","DERI HERMAWAN","DEVA AFRILIA","DIAN OKTAVIANI","DISTIE SEPTIA RAMADANI","ELSA SRI WAHYUNI","FAHRIZAL ABDUL AZIZ","FAISAL ABDUL ROHMAN","HAYATI RAHMAYATI","IBNU MALIK ALMULKILAH","INDAH PERMATA SARI","INKA KAYLA","KIRANA SITI HAULA","LESTIARA MARLINA","LINDIA NURAZIZAH","LUTFIANA PUTRI INDRIYANI","M FATHIR AHSANI AMRILAH","M.TRISTAN DELPANDI","MOH. REVAN FAIZ FATUROHMAN","MUHAMAD RAMDANI","MUHAMMAD ZIKRI PUTRA SOLEHUDIN","NAI DIANABILA","RAHMAWATI MA'ARIFATUN NISA","RAKHA NAUFAL ZUHDI","RINA YULIANA","RIZAL AHMAD RIFA'I","RIZKY ZAKY NUR KHOLISH","SHAKIRA DEWI ISKANDAR","SILMA FEBRIANI","SINTA SANTIKA","SUNDARI","TIAN JANWAR","VINA WINDANI","WINDI AULia","ZULFAN JAUHAR TAMAM"]
+    };
+
+    const attendanceOptions = { H: 'Hadir', S: 'Sakit', I: 'Izin', A: 'Alpa', T: 'Telat', B: 'Bolos' };
+    const attendanceColors = { H: 'border-green-500 text-green-600', S: 'border-yellow-500 text-yellow-600', I: 'border-blue-500 text-blue-600', A: 'border-red-500 text-red-600', T: 'border-purple-500 text-purple-600', B: 'border-gray-700 text-gray-800' };
+    const assessmentTypes = { TGS: 'Tugas', FRM: 'Formatif', SMT: 'Sumatif', LLN: 'Lainnya' };
+    
+    let changedAssessments = new Set(); // Melacak penilaian yang nilainya diubah
+
+    // --- DATA MANAGEMENT (GOOGLE SHEETS) ---
+    function showLoader(text) {
+        loaderText.textContent = text;
+        loader.classList.add('active');
+    }
+
+    function hideLoader() {
+        loader.classList.remove('active');
+    }
+    
+    function showSaveStatus(status) {
+        saveButton.disabled = true;
+        if (status === 'saving') {
+            saveButton.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-3"></i><span>Menyimpan...</span>`;
+        } else if (status === 'saved') {
+            saveButton.innerHTML = `<i class="fa-solid fa-check mr-3"></i><span>Tersimpan!</span>`;
+            setTimeout(() => {
+                saveButton.innerHTML = `<i class="fa-solid fa-cloud-arrow-up mr-3"></i><span>Simpan ke Spreadsheet</span>`;
+                saveButton.disabled = false;
+            }, 2500);
+        } else if (status === 'error') {
+            saveButton.innerHTML = `<i class="fa-solid fa-xmark mr-3"></i><span>Gagal Menyimpan</span>`;
+             setTimeout(() => {
+                saveButton.innerHTML = `<i class="fa-solid fa-cloud-arrow-up mr-3"></i><span>Simpan ke Spreadsheet</span>`;
+                saveButton.disabled = false;
+            }, 3000);
+        }
+    }
+
+    function loadDataFromSheet() {
+        showLoader('Mengambil data dari Spreadsheet...');
+        fetch(WEB_APP_URL)
+            .then(res => res.json())
+            .then(res => {
+                if (res.status === 'success') {
+                    // Inisialisasi struktur appData
+                    Object.keys(studentData).forEach(className => {
+                        appData[className] = { assessments: {}, attendance: {}, lessonInfo: {} };
+                    });
+                    
+                    // Proses data absensi (hanya yang tidak hadir)
+                    if(res.data.attendance.length > 1) { // Cek jika ada data selain header
+                      res.data.attendance.forEach(row => {
+                          const [date, className, studentName, status, note] = row;
+                          if (!appData[className] || !studentData[className].includes(studentName)) return;
+                          const dateStr = new Date(date).toISOString().slice(0, 10);
+                          if (!appData[className].attendance[dateStr]) appData[className].attendance[dateStr] = {};
+                          appData[className].attendance[dateStr][studentName] = { status, note: note || '' };
+                      });
+                    }
+
+                    // Proses data penilaian
+                    if(res.data.assessments.length > 1) {
+                      res.data.assessments.forEach(row => {
+                           const [assessmentId, className, studentName, score] = row;
+                           if (!appData[className] || !studentData[className].includes(studentName)) return;
+                           
+                           if(!appData[className].assessments[assessmentId]) {
+                               const [date, type, num, ...titleParts] = assessmentId.split('_');
+                               const title = titleParts.join(' ').replace(/%20/g, ' '); // Decode spasi
+                               appData[className].assessments[assessmentId] = { title: title || `Penilaian ${type} ${date}`, scores: {} };
+                           }
+                           appData[className].assessments[assessmentId].scores[studentName] = score;
+                      });
+                    }
+                    
+                     // Proses data jurnal
+                    if(res.data.journal.length > 1){
+                      res.data.journal.forEach(row => {
+                          const [date, className, materi, catatan] = row;
+                          if (!appData[className]) return;
+                          const dateStr = new Date(date).toISOString().slice(0, 10);
+                          if (!appData[className].lessonInfo[dateStr]) appData[className].lessonInfo[dateStr] = {};
+                          appData[className].lessonInfo[dateStr] = { materi, catatan };
+                      });
+                    }
+                    
+                    renderContent();
+                    renderLessonInfo();
+                } else {
+                    alert('Gagal memuat data: ' + res.message);
+                }
+                hideLoader();
+            })
+            .catch(err => {
+                hideLoader();
+                alert('Kesalahan jaringan saat memuat data. Pastikan URL Web App Anda benar, sudah di-deploy, dan Anda memiliki koneksi internet.');
+                console.error(err);
+            });
+    }
+
+    function saveDataToSheet() {
+        showSaveStatus('saving');
+        
+        const dailyAttendance = appData[currentClass]?.attendance[currentDate] || {};
+        const attendancePayload = Object.entries(dailyAttendance).map(([name, data]) => {
+            // Kolom: Tanggal, Kelas, Nama, Status, Catatan
+            return [currentDate, currentClass, name, data.status, data.note];
+        });
+
+        const journalPayload = [
+            currentDate,
+            currentClass,
+            materiPembahasanInput.value,
+            catatanKegiatanInput.value
+        ];
+
+        let assessmentPayload = [];
+        changedAssessments.forEach(assessmentId => {
+            const assessment = appData[currentClass].assessments[assessmentId];
+            if(assessment) {
+                Object.entries(assessment.scores).forEach(([studentName, score]) => {
+                    if (score !== '' && score !== null && score !== undefined) {
+                         // Kolom: ID, Kelas, Nama, Nilai
+                        assessmentPayload.push([assessmentId, currentClass, studentName, score]);
+                    }
+                });
+            }
+        });
+        
+        const dataToSave = {
+            action: 'saveAllData',
+            payload: {
+                attendance: attendancePayload,
+                journal: journalPayload,
+                assessments: assessmentPayload
+            }
+        };
+
+        fetch(WEB_APP_URL, {
+            method: 'POST',
+            body: JSON.stringify(dataToSave),
+            headers: { 'Content-Type': 'application/json' },
+            mode: 'no-cors' // Diperlukan karena respons dari web app script redirect
+        })
+        .then(() => {
+             // Karena mode no-cors, kita tidak bisa membaca respons. Asumsikan sukses.
+            showSaveStatus('saved');
+            changedAssessments.clear(); // Reset set penilaian yang berubah
+        })
+        .catch(err => {
+            showSaveStatus('error');
+            alert('Kesalahan jaringan saat menyimpan data.');
+            console.error(err);
+        });
+    }
+
+    function initializeDailyAttendance() {
+        const students = studentData[currentClass];
+        if (!appData[currentClass].attendance[currentDate]) {
+            appData[currentClass].attendance[currentDate] = {};
+        }
+        const dailyAttendance = appData[currentClass].attendance[currentDate];
+        students.forEach(name => {
+            if (!dailyAttendance[name]) {
+                dailyAttendance[name] = { status: 'H', note: '' };
+            }
+        });
+    }
+    
+    function renderLessonInfo() {
+        const info = appData[currentClass]?.lessonInfo[currentDate];
+        materiPembahasanInput.value = info?.materi || '';
+        catatanKegiatanInput.value = info?.catatan || '';
+    }
+
+    function renderAbsensi() {
+        initializeDailyAttendance();
+        appContent.innerHTML = generateAbsensiHTML();
+        attachAbsensiListeners();
+    };
+    
+    function generateAbsensiHTML() {
+        let table = `<div class="table-container"><table class="min-w-full"><thead class="bg-gray-100 sticky top-0 z-10"><tr>
+                <th class="px-4 py-3.5 text-left text-sm font-semibold text-gray-800">No</th>
+                <th class="px-4 py-3.5 text-left text-sm font-semibold text-gray-800 w-1/3">Nama Siswa</th>
+                <th class="px-4 py-3.5 text-center text-sm font-semibold text-gray-800">Status</th>
+                <th class="px-4 py-3.5 text-left text-sm font-semibold text-gray-800 w-1/3">Catatan Harian</th>
+            </tr></thead><tbody class="bg-white divide-y divide-gray-200">`;
+        
+        const dailyAttendance = appData[currentClass]?.attendance[currentDate] || {};
+        studentData[currentClass].forEach((name, index) => {
+            const status = dailyAttendance[name]?.status || 'H';
+            const note = dailyAttendance[name]?.note || '';
+            table += `<tr class="${index % 2 === 0 ? 'bg-white' : 'bg-orange-50'}">
+                <td class="px-4 py-2 text-sm font-medium text-gray-600">${index + 1}</td>
+                <td class="px-4 py-2 text-sm text-gray-800 font-semibold">${name}</td>
+                <td class="px-4 py-2"><div class="flex items-center justify-center gap-1">
+                    ${Object.keys(attendanceOptions).map(key => `
+                        <button data-name="${name}" data-status="${key}" class="status-btn h-9 w-9 text-sm font-bold rounded-full border-2 ${attendanceColors[key]} ${status === key ? 'active' : ''}">${key}</button>
+                    `).join('')}
+                </div></td>
+                <td class="px-4 py-2"><input type="text" data-name="${name}" class="note-input w-full p-2 border border-gray-300 rounded-md text-sm" value="${note}"></td>
+            </tr>`;
+        });
+        table += `</tbody></table></div>`;
+        return table;
+    }
+    
+    function renderPenilaian(selectedAssessmentId = null) {
+        const assessments = appData[currentClass]?.assessments || {};
+        let sortedIds = Object.keys(assessments).sort((a,b) => b.localeCompare(a));
+        let selectedId = selectedAssessmentId || sortedIds[0];
+        let content = `<div class="p-4"><div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+            <select id="assessment-selector" class="form-input w-full md:w-2/3 p-3 border border-gray-300 rounded-lg">
+                ${sortedIds.length === 0 ? '<option>Belum ada penilaian</option>' :
+                    sortedIds.map(id => `<option value="${id}" ${id === selectedId ? 'selected':''}>${assessments[id].title || id}</option>`).join('')
+                }
+            </select>
+            <button id="add-assessment-btn" class="w-full md:w-auto bg-blue-600 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Tambah Penilaian</button>
+        </div>`;
+        if (selectedId && assessments[selectedId]) {
+            content += `<h3 class="text-xl font-bold mb-2">Input Nilai: ${assessments[selectedId].title}</h3>
+                <div class="table-container"><table class="min-w-full">
+                <thead class="bg-gray-100 sticky top-0 z-10"><tr>
+                    <th class="px-4 py-3.5 text-left text-sm font-semibold text-gray-800">No</th>
+                    <th class="px-4 py-3.5 text-left text-sm font-semibold text-gray-800">Nama Siswa</th>
+                    <th class="px-4 py-3.5 text-center text-sm font-semibold text-gray-800">Nilai</th>
+                </tr></thead><tbody class="bg-white divide-y divide-gray-200">`;
+            const scores = assessments[selectedId].scores || {};
+            studentData[currentClass].forEach((name, index) => {
+                content += `<tr>
+                    <td class="px-4 py-2 text-sm">${index + 1}</td>
+                    <td class="px-4 py-2 font-semibold text-sm">${name}</td>
+                    <td class="px-4 py-2 text-center"><input type="number" min="0" max="100" data-name="${name}" data-assessment-id="${selectedId}" class="note-input w-24 text-center p-2 border border-gray-300 rounded-md" value="${scores[name] || ''}"></td>
+                </tr>`;
+            });
+            content += `</tbody></table></div>`;
+        }
+        appContent.innerHTML = content;
+        attachPenilaianListeners();
+    }
+    
+    function renderLaporan(reportType = 'ketidakhadiran', studentName = null, period = 'monthly') {
+        let content = `<div class="p-4 space-y-4">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-end">
+                <div class="flex flex-col">
+                   <label class="text-sm font-medium text-gray-700 mb-1">Jenis Laporan</label>
+                   <select id="report-type-selector" class="form-input p-3 border-gray-300 rounded-lg">
+                        <option value="ketidakhadiran" ${reportType === 'ketidakhadiran' ? 'selected' : ''}>Rekap Ketidakhadiran Siswa</option>
+                        <option value="penilaian_kelas" ${reportType === 'penilaian_kelas' ? 'selected' : ''}>Rekap Penilaian (Per Kelas)</option>
+                        <option value="nilai_individu" ${reportType === 'nilai_individu' ? 'selected' : ''}>Rekap Nilai (Per Siswa)</option>
+                    </select>
+                </div>
+                <div id="report-filters" class="flex-grow flex flex-wrap gap-4 items-end col-span-1 lg:col-span-2"></div>
+            </div>
+            <div id="report-preview" class="table-container border rounded-lg p-2 bg-white mt-4"></div>
+             <div class="border-t mt-4 pt-4 flex flex-wrap gap-4">
+                <button id="export-report-btn" class="bg-emerald-600 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center whitespace-nowrap hover:bg-emerald-700"><i class="fa-solid fa-file-excel mr-2"></i>Ekspor Laporan Saat Ini</button>
+                <button id="export-all-attendance-btn" class="bg-sky-600 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center whitespace-nowrap hover:bg-sky-700" title="Ekspor rekap ketidakhadiran semua kelas ke dalam satu file Excel."><i class="fa-solid fa-file-zipper mr-2"></i>Ekspor Absensi Semua Kelas</button>
+                <button id="export-all-assessments-btn" class="bg-amber-600 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center whitespace-nowrap hover:bg-amber-700" title="Ekspor rekap penilaian semua kelas ke dalam satu file Excel."><i class="fa-solid fa-file-zipper mr-2"></i>Ekspor Penilaian Semua Kelas</button>
+             </div>
+        </div>`;
+        appContent.innerHTML = content;
+        renderLaporanFilters(reportType, studentName, period);
+        attachLaporanListeners();
+    }
+    
+    function renderLaporanFilters(reportType, studentName, period) {
+        const filtersContainer = document.getElementById('report-filters');
+        if (reportType === 'ketidakhadiran') {
+            const currentMonth = new Date().toISOString().slice(0, 7);
+            filtersContainer.innerHTML = `<div class="flex flex-col flex-grow">
+                <label class="text-sm font-medium text-gray-700 mb-1">Periode Laporan</label>
+                <select id="period-selector" class="form-input w-full p-3 border-gray-300 rounded-lg">
+                    <option value="monthly" ${period === 'monthly' ? 'selected' : ''}>Per Bulan</option>
+                    <option value="semester1" ${period === 'semester1' ? 'selected' : ''}>Semester 1 (Juli-Des)</option>
+                    <option value="semester2" ${period === 'semester2' ? 'selected' : ''}>Semester 2 (Jan-Juni)</option>
+                    <option value="yearly" ${period === 'yearly' ? 'selected' : ''}>Satu Tahun</option>
+                </select>
+            </div>
+            <div id="month-picker-container" class="flex flex-col flex-grow ${period !== 'monthly' ? 'hidden' : ''}">
+                 <label class="text-sm font-medium text-gray-700 mb-1">Pilih Bulan</label>
+                 <input type="month" id="month-picker" class="form-input w-full p-3 border-gray-300 rounded-lg" value="${currentMonth}">
+            </div>`;
+        } else if (reportType === 'nilai_individu') {
+            filtersContainer.innerHTML = `<div class="flex flex-col flex-grow">
+                <label class="text-sm font-medium text-gray-700 mb-1">Pilih Siswa</label>
+                <select id="student-selector" class="form-input w-full p-3 border-gray-300 rounded-lg">
+                    ${studentData[currentClass].map(name => `<option value="${name}" ${name === studentName ? 'selected' : ''}>${name}</option>`).join('')}
+                </select>
+            </div>`;
+        } else {
+            filtersContainer.innerHTML = '<div class="flex-grow"><p class="text-sm text-gray-500 pt-8">Menampilkan rekap penilaian untuk kelas yang dipilih.</p></div>';
+        }
+        renderLaporanPreview(reportType, studentName, period);
+        attachLaporanFilterListeners();
+    }
+
+    function renderLaporanPreview(reportType, studentName, period) {
+        const previewContainer = document.getElementById('report-preview');
+        if (reportType === 'ketidakhadiran') {
+            const month = document.getElementById('month-picker')?.value;
+            previewContainer.innerHTML = generateAttendanceRecapHTML(currentClass, period, month);
+        } else if (reportType === 'nilai_individu') {
+            const selectedStudent = studentName || studentData[currentClass][0];
+            previewContainer.innerHTML = generateIndividualScoreRecapHTML(selectedStudent);
+        } else if (reportType === 'penilaian_kelas') {
+            previewContainer.innerHTML = generateClassScoreRecapHTML(currentClass);
+        }
+    }
+    
+    function getAttendanceRecapData(className, period, month, onlyNonPresent = true) {
+        const attendanceData = appData[className]?.attendance || {};
+        const students = studentData[className];
+        let recap = {};
+
+        Object.entries(attendanceData).forEach(([dateStr, dailyData]) => {
+            const date = new Date(dateStr);
+            const year = date.getFullYear();
+            const currentYear = new Date().getFullYear();
+            const dateMonth = date.getMonth(); 
+            const inPeriod = (
+                (period === 'monthly' && dateStr.startsWith(month)) ||
+                (period === 'semester1' && year === currentYear && dateMonth >= 6 && dateMonth <= 11) ||
+                (period === 'semester2' && (year === currentYear+1 || year === currentYear) && dateMonth >= 0 && dateMonth <= 5) || // Menangani pergantian tahun ajaran
+                (period === 'yearly' && year === currentYear)
+            );
+
+            if (inPeriod) {
+                Object.entries(dailyData).forEach(([studentName, data]) => {
+                    if (data.status !== 'H') {
+                        if (!recap[studentName]) {
+                            recap[studentName] = [];
+                        }
+                        recap[studentName].push({
+                            date: dateStr,
+                            status: attendanceOptions[data.status] || data.status,
+                            note: data.note || '-'
+                        });
+                    }
+                });
+            }
+        });
+
+        // Urutkan berdasarkan tanggal
+        for(const student in recap){
+            recap[student].sort((a,b) => a.date.localeCompare(b.date));
+        }
+
+        return recap;
+    }
+
+    function generateAttendanceRecapHTML(className, period, month) {
+        const recapData = getAttendanceRecapData(className, period, month);
+        let table = `<h3 class="font-bold text-lg mb-2 p-2">Rekap Ketidakhadiran: Kelas ${className.replace('X','X.')}</h3>`;
+        if (Object.keys(recapData).length === 0) {
+            return table + '<p class="text-gray-500 p-2">Tidak ada data ketidakhadiran pada periode yang dipilih.</p>';
+        }
+
+        table += `<table class="min-w-full text-sm"><thead class="bg-gray-100"><tr>
+            <th class="px-3 py-2 text-left font-semibold">Nama Siswa</th>
+            <th class="px-3 py-2 text-left font-semibold">Tanggal</th>
+            <th class="px-3 py-2 text-center font-semibold">Status</th>
+            <th class="px-3 py-2 text-left font-semibold">Catatan</th>
+        </tr></thead><tbody class="divide-y divide-gray-200">`;
+        
+        Object.entries(recapData).forEach(([studentName, records], index) => {
+            records.forEach((record, recordIndex) => {
+                table += `<tr class="${index % 2 === 0 ? 'bg-white' : 'bg-orange-50'}">`;
+                if(recordIndex === 0) {
+                    table += `<td class="px-3 py-2 font-semibold" rowspan="${records.length}">${studentName}</td>`;
+                }
+                table += `<td class="px-3 py-2">${record.date}</td>
+                          <td class="px-3 py-2 text-center">${record.status}</td>
+                          <td class="px-3 py-2">${record.note}</td>`;
+                table += `</tr>`;
+            });
+        });
+
+        table += '</tbody></table>';
+        return table;
+    }
+
+    function getIndividualScoreRecapData(studentName) {
+        const assessments = appData[currentClass]?.assessments || {};
+        const studentScores = [];
+        Object.entries(assessments).forEach(([id, data]) => {
+            if (data.scores && data.scores[studentName] !== undefined && data.scores[studentName] !== '') {
+                const [date, type] = id.split('_');
+                studentScores.push({ date, type: assessmentTypes[type] || 'Lainnya', title: data.title, score: data.scores[studentName] });
+            }
+        });
+        studentScores.sort((a,b) => a.date.localeCompare(b.date));
+        const headerRow = ['Tanggal', 'Jenis Penilaian', 'Judul / Deskripsi', 'Nilai'];
+        const bodyRows = studentScores.map(item => [item.date, item.type, item.title, item.score]);
+        return { studentScores, headerRow, bodyRows };
+    }
+
+    function generateIndividualScoreRecapHTML(studentName) {
+        const { studentScores, headerRow, bodyRows } = getIndividualScoreRecapData(studentName);
+        let table = `<h3 class="font-bold text-lg mb-2 p-2">Laporan Nilai untuk: ${studentName}</h3>`;
+        if (studentScores.length === 0) return table + '<p class="text-gray-500 p-2">Belum ada data nilai.</p>';
+        table += `<table class="min-w-full text-sm"><thead class="bg-gray-100"><tr>
+            ${headerRow.map(h => `<th class="px-3 py-2 text-left font-semibold">${h}</th>`).join('')}
+        </tr></thead><tbody class="divide-y divide-gray-200">`;
+        bodyRows.forEach((item, index) => {
+            table += `<tr class="${index % 2 === 0 ? 'bg-white' : 'bg-orange-50'}">${item.map((cell, idx) => `<td class="px-3 py-2 ${idx===3 ? 'text-center font-bold':''}">${cell}</td>`).join('')}</tr>`;
+        });
+        table += '</tbody></table>';
+        return table;
+    }
+
+    function getClassScoreRecapData(className) {
+        const assessments = appData[className]?.assessments || {};
+        const students = studentData[className];
+        const sortedAssessmentIds = Object.keys(assessments).sort((a, b) => a.localeCompare(b));
+        
+        const headerRow = ['No', 'Nama Siswa', ...sortedAssessmentIds.map(id => {
+            const assessment = assessments[id];
+            const [date, type] = id.split('_');
+            // Ganti \n dengan spasi untuk tampilan yang lebih baik di Excel
+            return `${assessmentTypes[type] || 'Lain'} ${date}`;
+        })];
+
+        const bodyRows = students.map((name, index) => {
+            const row = [index + 1, name];
+            sortedAssessmentIds.forEach(id => row.push(assessments[id].scores?.[name] || ''));
+            return row;
+        });
+
+        const averages = ['','Rata-Rata'];
+        sortedAssessmentIds.forEach(id => {
+            let total = 0, count = 0;
+            students.forEach(name => {
+                const score = assessments[id].scores?.[name];
+                if (score !== undefined && score !== '' && !isNaN(score)) {
+                    total += parseFloat(score);
+                    count++;
+                }
+            });
+            averages.push(count > 0 ? (total / count).toFixed(1) : '-');
+        });
+        return { headerRow, bodyRows, footerRow: averages };
+    }
+
+    function generateClassScoreRecapHTML(className) {
+        const { headerRow, bodyRows, footerRow } = getClassScoreRecapData(className);
+        if (headerRow.length <= 2) return `<h3 class="font-bold text-lg mb-2 p-2">Rekap Penilaian: Kelas ${className.replace('X','X.')}</h3><p class="text-gray-500 p-2">Belum ada data penilaian untuk kelas ini.</p>`;
+        
+        let table = `<h3 class="font-bold text-lg mb-2 p-2">Rekap Penilaian: Kelas ${className.replace('X','X.')}</h3><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="bg-gray-100 sticky top-0 z-10"><tr>`;
+        headerRow.forEach((cell, index) => {
+            table += `<th class="px-2 py-2 text-left font-semibold ${index < 2 ? `sticky z-20 ${index === 0 ? 'left-0' : 'left-10'} bg-gray-100` : ''}" style="min-width: ${index === 0 ? '40px' : (index === 1 ? '200px' : '120px')}; white-space: pre-wrap;">${cell.replace('\n', ' ')}</th>`;
+        });
+        table += `</tr></thead><tbody class="divide-y divide-gray-200">`;
+        
+        bodyRows.forEach((row, rowIndex) => {
+            table += `<tr class="${rowIndex % 2 === 0 ? 'bg-white' : 'bg-orange-50'}">`;
+            row.forEach((cell, cellIndex) => {
+                table += `<td class="px-2 py-2 ${cellIndex < 2 ? `font-semibold sticky z-10 ${cellIndex === 0 ? 'left-0' : 'left-10'} ${rowIndex % 2 === 0 ? 'bg-white' : 'bg-orange-50'}` : 'text-center'}">${cell}</td>`;
+            });
+            table += `</tr>`;
+        });
+        
+        table += `</tbody><tfoot class="bg-gray-200 font-bold text-gray-800"><tr>`;
+        footerRow.forEach((cell, cellIndex) => {
+            table += `<td class="px-2 py-2 ${cellIndex < 2 ? `sticky z-10 ${cellIndex === 0 ? 'left-0' : 'left-10'} bg-gray-200` : 'text-center'}">${cell}</td>`;
+        });
+        table += `</tr></tfoot></table></div>`;
+        return table;
+    }
+
+    // --- ATTACH LISTENERS ---
+    function attachAbsensiListeners() {
+        appContent.querySelectorAll('.status-btn').forEach(btn => btn.onclick = (e) => {
+            const { name, status } = e.currentTarget.dataset;
+            appData[currentClass].attendance[currentDate][name].status = status;
+            e.currentTarget.parentElement.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+            e.currentTarget.classList.add('active');
+        });
+        appContent.querySelectorAll('.note-input').forEach(input => input.oninput = (e) => {
+            const { name } = e.currentTarget.dataset;
+            appData[currentClass].attendance[currentDate][name].note = e.currentTarget.value;
+        });
+    }
+
+    function attachPenilaianListeners() {
+        document.getElementById('add-assessment-btn').onclick = () => assessmentModal.classList.add('active');
+        document.getElementById('assessment-selector')?.addEventListener('change', (e) => renderPenilaian(e.target.value));
+        appContent.querySelectorAll('input[type="number"]').forEach(input => input.oninput = (e) => {
+            const { name, assessmentId } = e.currentTarget.dataset;
+            if (!appData[currentClass].assessments[assessmentId].scores) {
+                 appData[currentClass].assessments[assessmentId].scores = {};
+            }
+            appData[currentClass].assessments[assessmentId].scores[name] = e.currentTarget.value;
+            changedAssessments.add(assessmentId); // Tandai penilaian ini telah diubah
+        });
+    }
+
+    function attachLaporanListeners() {
+        document.getElementById('report-type-selector').onchange = (e) => renderLaporan(e.target.value, null, document.getElementById('period-selector')?.value);
+        document.getElementById('export-report-btn').onclick = exportCurrentReport;
+        document.getElementById('export-all-attendance-btn').onclick = exportAllAttendance;
+        document.getElementById('export-all-assessments-btn').onclick = exportAllAssessments;
+    }
+    
+    function attachLaporanFilterListeners() {
+        const reportType = document.getElementById('report-type-selector').value;
+        const studentSelector = document.getElementById('student-selector');
+        const periodSelector = document.getElementById('period-selector');
+        const monthPicker = document.getElementById('month-picker');
+
+        if (periodSelector) {
+            periodSelector.onchange = (e) => {
+                document.getElementById('month-picker-container').classList.toggle('hidden', e.target.value !== 'monthly');
+                renderLaporan(reportType, null, e.target.value);
+            };
+        }
+        if (monthPicker) {
+            monthPicker.onchange = () => renderLaporanPreview(reportType, null, 'monthly');
+        }
+        if (studentSelector) {
+            studentSelector.onchange = (e) => renderLaporanPreview(reportType, e.target.value, null);
+        }
+    }
+
+    // --- EXPORT FUNCTIONS ---
+    function createHeaderAoA(className, reportTitle) {
+        const schoolName = "SMA NEGERI 1 SARIWANGI", schoolAddress = "Kp. Cipaku Kecamatan Sariwangi - Kabupatén Tasikmalaya",
+              subjectTitle = "MATA PELAJARAN FISIKA KELAS X", teacherName = "GURU PENGAMPU: WAWAN RIDWAN";
+        return [
+            [schoolName], [schoolAddress], [], [subjectTitle], [teacherName], [`Kelas: ${className.replace('X', 'X.')}`], [], [reportTitle], []
+        ];
+    }
+
+    function exportCurrentReport() {
+        const reportType = document.getElementById('report-type-selector').value;
+        let reportTitle = "", fileName = `Laporan_Fisika_${currentClass}.xlsx`, dataAoA = [];
+        
+        if (reportType === 'ketidakhadiran') {
+            const periodSelector = document.getElementById('period-selector'), periodText = periodSelector.options[periodSelector.selectedIndex].text,
+                  periodValue = periodSelector.value, monthValue = document.getElementById('month-picker')?.value;
+            reportTitle = `REKAP KETIDAKHADIRAN (${periodText})`; fileName = `Rekap_Ketidakhadiran_${currentClass}_${periodValue}.xlsx`;
+            
+            const recapData = getAttendanceRecapData(currentClass, periodValue, monthValue);
+            const header = ['Nama Siswa', 'Tanggal', 'Status', 'Catatan'];
+            const body = [];
+            Object.entries(recapData).forEach(([studentName, records]) => {
+                records.forEach(record => {
+                    body.push([studentName, record.date, record.status, record.note]);
+                });
+            });
+
+            if(body.length === 0) return alert("Tidak ada data untuk diekspor.");
+            dataAoA = [header, ...body];
+
+        } else if (reportType === 'nilai_individu') {
+            const studentName = document.getElementById('student-selector').value;
+            reportTitle = `REKAP NILAI INDIVIDU: ${studentName}`; fileName = `Rekap_Nilai_${currentClass}_${studentName.replace(/ /g, '_')}.xlsx`;
+            const { headerRow, bodyRows, studentScores } = getIndividualScoreRecapData(studentName);
+            if(studentScores.length === 0) return alert("Tidak ada data nilai untuk diekspor.");
+            dataAoA = [headerRow, ...bodyRows];
+
+        } else if (reportType === 'penilaian_kelas') {
+            reportTitle = `REKAP PENILAIAN KELAS`; fileName = `Rekap_Penilaian_Kelas_${currentClass}.xlsx`;
+            const { headerRow, bodyRows, footerRow } = getClassScoreRecapData(currentClass);
+            if (headerRow.length <= 2) return alert("Tidak ada data penilaian untuk diekspor.");
+            dataAoA = [headerRow, ...bodyRows, footerRow];
+        }
+
+        const headerAoA = createHeaderAoA(currentClass, reportTitle);
+        const ws = XLSX.utils.aoa_to_sheet(headerAoA.concat(dataAoA));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, `Laporan ${currentClass}`);
+        XLSX.writeFile(wb, fileName);
+    }
+    
+    function exportAllAttendance() {
+        const periodSelector = document.getElementById('period-selector');
+        if(!periodSelector) {
+            alert('Silakan pilih jenis laporan "Rekap Ketidakhadiran Siswa" terlebih dahulu untuk menentukan periode.');
+            renderLaporan('ketidakhadiran');
+            return;
+        }
+        const periodValue = periodSelector.value, periodText = periodSelector.options[periodSelector.selectedIndex].text,
+              monthValue = document.getElementById('month-picker')?.value, 
+              reportTitle = `REKAP KETIDAKHADIRAN (${periodText})`,
+              fileName = `Rekap_Absensi_Semua_Kelas_${periodValue}.xlsx`, wb = XLSX.utils.book_new();
+        
+        Object.keys(studentData).forEach(className => {
+            const headerAoA = createHeaderAoA(className, reportTitle);
+            const recapData = getAttendanceRecapData(className, periodValue, monthValue);
+            const header = ['Nama Siswa', 'Tanggal', 'Status', 'Catatan'];
+            const body = [];
+            Object.entries(recapData).forEach(([studentName, records]) => {
+                records.forEach(record => {
+                    body.push([studentName, record.date, record.status, record.note]);
+                });
+            });
+
+            // Hanya buat sheet jika ada data
+            if(body.length > 0) {
+              const ws = XLSX.utils.aoa_to_sheet(headerAoA.concat([header, ...body]));
+              XLSX.utils.book_append_sheet(wb, ws, `Absensi ${className}`);
+            }
+        });
+
+        if(wb.SheetNames.length === 0){
+           return alert('Tidak ada data ketidakhadiran di semua kelas untuk periode yang dipilih.');
+        }
+        XLSX.writeFile(wb, fileName);
+    }
+
+    function exportAllAssessments() {
+        const reportTitle = 'REKAP PENILAIAN SEMUA KELAS', fileName = `Rekap_Penilaian_Semua_Kelas.xlsx`, wb = XLSX.utils.book_new();
+        let sheetsAdded = 0;
+        Object.keys(studentData).forEach(className => {
+            const headerAoA = createHeaderAoA(className, reportTitle);
+            const { headerRow, bodyRows, footerRow } = getClassScoreRecapData(className);
+            if(headerRow.length > 2) {
+                const ws = XLSX.utils.aoa_to_sheet(headerAoA.concat([headerRow, ...bodyRows, footerRow]));
+                XLSX.utils.book_append_sheet(wb, ws, `Penilaian ${className}`);
+                sheetsAdded++;
+            }
+        });
+        if (sheetsAdded > 0) XLSX.writeFile(wb, fileName);
+        else alert('Tidak ada data penilaian di kelas manapun untuk diekspor.');
+    }
+    
+    function setupModal() {
+        document.getElementById('cancel-assessment').onclick = () => assessmentModal.classList.remove('active');
+        document.getElementById('save-assessment').onclick = () => {
+            const date = document.getElementById('assessment-date').value;
+            const type = document.getElementById('assessment-type').value;
+            let title = document.getElementById('assessment-title').value;
+
+            if (!date || !title) return alert('Tanggal dan Judul harus diisi!');
+            
+            title = title.replace(/ /g, '%20'); // Encode spasi untuk ID
+            const idCounter = Object.keys(appData[currentClass].assessments).filter(k => k.startsWith(`${date}_${type}`)).length + 1;
+            const assessmentId = `${date}_${type}_${idCounter}_${title}`;
+
+            if(!appData[currentClass].assessments) appData[currentClass].assessments = {};
+            appData[currentClass].assessments[assessmentId] = { title: document.getElementById('assessment-title').value, scores: {} };
+            
+            assessmentModal.classList.remove('active');
+            tabs.forEach(t => t.classList.remove('active'));
+            document.querySelector('.tab-button[data-tab="penilaian"]').classList.add('active');
+            currentTab = 'penilaian';
+            renderContent();
+            renderPenilaian(assessmentId);
+        };
+    }
+    
+    // --- INIT & EVENT LISTENERS ---
+    function init() {
+        if (WEB_APP_URL.includes("MASUKKAN_URL")) {
+            alert("PENTING: Harap masukkan URL Web App dari Google Apps Script Anda di dalam file HTML ini pada variabel WEB_APP_URL.");
+            hideLoader();
+            return;
+        }
+
+        datePicker.value = currentDate;
+        const classKeys = Object.keys(studentData).sort();
+        classSelector.innerHTML = classKeys.map(key => `<option value="${key}">Kelas ${key.replace('X', 'X.')}</option>`).join('');
+        currentClass = classKeys[0];
+        
+        loadDataFromSheet();
+
+        tabs.forEach(button => {
+            button.onclick = () => {
+                currentTab = button.dataset.tab;
+                tabs.forEach(t => t.classList.remove('active'));
+                button.classList.add('active');
+                renderContent();
+            };
+        });
+
+        classSelector.onchange = (e) => { 
+            currentClass = e.target.value; 
+            renderContent(); 
+            renderLessonInfo();
+        };
+        datePicker.onchange = (e) => { 
+            currentDate = e.target.value; 
+            if(currentTab === 'absensi') {
+                renderAbsensi();
+            }
+            renderLessonInfo();
+        };
+        
+        saveButton.onclick = saveDataToSheet;
+
+        materiPembahasanInput.onchange = () => {
+           if(!appData[currentClass].lessonInfo[currentDate]) appData[currentClass].lessonInfo[currentDate] = {};
+           appData[currentClass].lessonInfo[currentDate].materi = materiPembahasanInput.value;
+        };
+        catatanKegiatanInput.onchange = () => {
+           if(!appData[currentClass].lessonInfo[currentDate]) appData[currentClass].lessonInfo[currentDate] = {};
+           appData[currentClass].lessonInfo[currentDate].catatan = catatanKegiatanInput.value;
+        };
+
+
+        setupModal();
+        document.querySelector('.tab-button[data-tab="absensi"]').classList.add('active');
+    }
+
+    function renderContent() {
+        const reportTypeEl = document.getElementById('report-type-selector');
+        const reportType = reportTypeEl ? reportTypeEl.value : 'ketidakhadiran';
+        
+        const studentSelectorEl = document.getElementById('student-selector');
+        const studentName = studentSelectorEl ? studentSelectorEl.value : null;
+
+        const periodSelectorEl = document.getElementById('period-selector');
+        const period = periodSelectorEl ? periodSelectorEl.value : 'monthly';
+        
+        switch(currentTab) {
+            case 'absensi': renderAbsensi(); break;
+            case 'penilaian': renderPenilaian(); break;
+            case 'laporan': renderLaporan(reportType, studentName, period); break;
+        }
+    }
+
+    init();
+});
+</script>
+</body>
+</html>
